@@ -41,21 +41,18 @@ osc = Osc(
 packages_collection=osc.search.search("package/id", xpath="@project=''")
 
 def remove_umlaut(string):
-    u = 'ü'.encode()
-    U = 'Ü'.encode()
-    a = 'ä'.encode()
-    A = 'Ä'.encode()
-    o = 'ö'.encode()
-    O = 'Ö'.encode()
-    ss = 'ß'.encode()
+    replacements = {
+        'ü': b'ue',
+        'Ü': b'Ue',
+        'ä': b'ae',
+        'Ä': b'Ae',
+        'ö': b'oe',
+        'Ö': b'Oe',
+        'ß': b'ss',
+    }
     string = string.encode()
-    string = string.replace(u, b'ue')
-    string = string.replace(U, b'Ue')
-    string = string.replace(a, b'ae')
-    string = string.replace(A, b'Ae')
-    string = string.replace(o, b'oe')
-    string = string.replace(O, b'Oe')
-    string = string.replace(ss, b'ss')
+    for k, v in replacements:
+        string = string.replace(k.encode(), v)
     string = string.decode('utf-8')
     return string
 
