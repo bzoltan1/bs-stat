@@ -69,7 +69,7 @@ def remove_umlaut(string):
     string = string.encode()
     for k, v in replacements.items():
         string = string.replace(k.encode(), v)
-    return string.decode('uty-8')
+    return string.decode('utf-8')
 
 
 @cachetools.cached(users_cache)
