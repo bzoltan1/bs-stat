@@ -23,23 +23,39 @@ from lxml import objectify, etree
 import sys
 import ldap3
 import re
+from functools import cache
+from os import environ as env
+from shelved_cache import PersistentCache
+import cachetools
 
 
-server_uri = ''
-search_base = ''
+from dotenv import load_dotenv
+load_dotenv()
+
+
+server_uri = env['LDAP_SERVER_URI']
+search_base = env['SEARCH_BASE']
 attrs = ['*']
 server = ldap3.Server(server_uri)
-name_list={}
+project = env['PROJECT']
 
 osc = Osc(
-    url="",
-    username="",
+    url=env['API_URL'],
+    username=env['OBS_USERNAME'],
     password=None,
-    ssh_key_file=Path("")
+    ssh_key_file=Path(env['SSH_KEY_FILE'])
 )
 
-packages_collection=osc.search.search("package/id", xpath="@project=''")
+package_cache = PersistentCache(
+    cachetools.LRUCache, 'pkgcache.tmp', maxsize=20000)
+users_cache = PersistentCache(cachetools.LRUCache, 'usrcache.tmp', maxsize=512)
 
+
+packages_collection = osc.search.search(
+    "package/id", xpath="@project=\'%s\'" % project)
+
+
+@cache
 def remove_umlaut(string):
     replacements = {
         'ü': b'ue',
@@ -53,44 +69,67 @@ def remove_umlaut(string):
     string = string.encode()
     for k, v in replacements.items():
         string = string.replace(k.encode(), v)
-    string = string.decode('utf-8')
-    return string
+    return string.decode('uty-8')
 
-for e in packages_collection.package:
-    package_name = e.attrib['name']
-    maintainer=osc.search.search("owner", xpath=None, package="%s" % package_name)
-    roles={}
-    for e in maintainer:
+
+@cachetools.cached(users_cache)
+def get_user(name):
+    return osc.users.get(name)
+
+
+@cachetools.cached(users_cache)
+def get_manager(name, email):
+    if "suse.com" in email:
+        filter_string = "(mail=%s)" % email
+    else:
+        filter_string = "(name=%s)" % remove_umlaut(name)
+    with ldap3.Connection(server, auto_bind=True, check_names=False) as conn:
+        try:
+            r = conn.search(
+                search_base, filter_string, attributes=attrs)
+            if r and 'manager' in conn.entries[0]:
+                z = re.match(
+                    "cn=([^,]*),", str(conn.entries[0]['manager']))
+                return z.group(1)
+            else:
+                return ""
+        except Exception:
+            return ""
+
+
+@cachetools.cached(package_cache)
+def get_pkg_info(pkg_name):
+    owner = osc.search.search(
+        "owner", xpath=None, package="%s" % pkg_name)
+    roles = {}
+    for e in owner:
         owner = e.find('owner')
         if owner is None:
             break
         group = e.owner.find('group')
         if group is not None:
-            roles[e.owner.group.attrib['role']] = e.owner.group.attrib['name']
+            roles[e.owner.group.attrib['role']
+                  ] = e.owner.group.attrib['name']
         person = e.owner.find('person')
         if person is not None:
-            maintainer=osc.users.get(e.owner.person.attrib['name'])
+            maintainer = get_user(e.owner.person.attrib['name'])
+            role = e.owner.person.attrib['role']
             for m in maintainer:
                 login = m.login.text
                 email = m.email.text
                 name = m.realname.text
-                if name not in name_list:
-                    if "suse.com" in email:
-                        filter_string = "(mail=%s)" % email
-                    else:
-                        filter_string = "(name=%s)" % remove_umlaut(name)
-                    with ldap3.Connection(server, auto_bind=True, check_names=False) as conn:
-                        try:
-                            r = conn.search(search_base, filter_string, attributes=attrs)
-                            if r and 'manager' in conn.entries[0]:
-                                z = re.match("cn=([^,]*),", str(conn.entries[0]['manager']))
-                                name_list[name] = z.group(1)
-                            else:
-                                name_list[name] = ""
-                        except Exception:
-                           name_list[name] = ""
+                manager = get_manager(name, email)
+            roles[role] = "login: %s  - email: %s  - name: %s -  manager: %s" % (
+                login, email, name, manager)
+    return str(roles)
 
-            roles[e.owner.person.attrib['role']] = "login: %s  - email: %s  - name: %s -  manager: %s" % (login, email, name, name_list[name])
 
-    print("%s %s" % (package_name, roles))
+def extract_pkg_info(project):
+    packages_collection = osc.search.search(
+        "package/id", xpath="@project=\'%s\'" % project)
+    for e in packages_collection.package:
+        package_name = e.attrib['name']
+        print(package_name, get_pkg_info(package_name))
 
+
+extract_pkg_info(project)
