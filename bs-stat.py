@@ -46,13 +46,12 @@ osc = Osc(
     ssh_key_file=Path(env['SSH_KEY_FILE'])
 )
 
+project_cache_file = project.replace(':', '_')
+
 package_cache = PersistentCache(
-    cachetools.LRUCache, 'pkgcache.tmp', maxsize=20000)
-users_cache = PersistentCache(cachetools.LRUCache, 'usrcache.tmp', maxsize=512)
-
-
-packages_collection = osc.search.search(
-    "package/id", xpath="@project=\'%s\'" % project)
+    cachetools.LRUCache, '%s.pkg.cache' % project_cache_file, maxsize=20000)
+users_cache = PersistentCache(
+    cachetools.LRUCache, '%s.usr.cache' % project_cache_file, maxsize=512)
 
 
 @cache
