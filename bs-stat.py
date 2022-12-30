@@ -51,7 +51,7 @@ def remove_umlaut(string):
         'ß': b'ss',
     }
     string = string.encode()
-    for k, v in replacements:
+    for k, v in replacements.items():
         string = string.replace(k.encode(), v)
     string = string.decode('utf-8')
     return string
