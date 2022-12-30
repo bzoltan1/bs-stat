@@ -1,0 +1,20 @@
+# fill in missing values and rename this file to .env
+# any of these variables can be overriden as environment
+#
+# you username in OBS
+OBS_USERNAME = 'your_username'
+
+# full path to your private ssh key
+SSH_KEY_FILE = '/home/your_path/.ssh/id_rsa'
+
+# URL for ldap queries
+LDAP_SERVER_URI = 'ldap://some.host'
+
+# base LDAP for search
+SEARCH_BASE = 'OU=stuff,DC=some,DC=foo,DC=bar'
+
+# URL for OBS api server
+API_URL = 'https://your.api.server.hostname'
+
+# project to get information from
+PROJECT = 'main:subproject:folder'

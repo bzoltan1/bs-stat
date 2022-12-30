@@ -1,0 +1,6 @@
+python-dotenv
+osc-tiny
+ldap3
+cached_property
+cachetools
+shelved_cache

@@ -1,0 +1,4 @@
+.env
+pkgcache.tmp
+usrcache.tmp
+.mypy_cache
