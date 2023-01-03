@@ -19,8 +19,6 @@
 
 from pathlib import Path
 from osctiny import Osc
-from lxml import objectify, etree
-import sys
 import ldap3
 import re
 from functools import cache
@@ -32,19 +30,31 @@ import cachetools
 from dotenv import load_dotenv
 load_dotenv()
 
+person_detail = env['PERSON_DETAIL'].lower() in ('true', '1', 't')
 
-server_uri = env['LDAP_SERVER_URI']
-search_base = env['SEARCH_BASE']
-attrs = ['*']
-server = ldap3.Server(server_uri)
+if person_detail:
+    server_uri = env['LDAP_SERVER_URI']
+    search_base = env['SEARCH_BASE']
+    attrs = ['*']
+    server = ldap3.Server(server_uri)
+
 project = env['PROJECT']
 
-osc = Osc(
-    url=env['API_URL'],
-    username=env['OBS_USERNAME'],
-    password=None,
-    ssh_key_file=Path(env['SSH_KEY_FILE'])
-)
+
+if 'OBS_PASSWORD' in env:
+    osc = Osc(
+        url=env['API_URL'],
+        username=env['OBS_USERNAME'],
+        password=env['OBS_PASSWORD'],
+        ssh_key_file=None
+    )
+else:
+    osc = Osc(
+        url=env['API_URL'],
+        username=env['OBS_USERNAME'],
+        password=None,
+        ssh_key_file=Path(env['SSH_KEY_FILE'])
+    )
 
 project_cache_file = project.replace(':', '_')
 
@@ -86,6 +96,9 @@ def get_manager(name, email):
         try:
             r = conn.search(
                 search_base, filter_string, attributes=attrs)
+            if not r:
+                filter_string = "(name=%s)" % remove_umlaut(name)
+                r = conn.search(search_base, filter_string, attributes=attrs)
             if r and 'manager' in conn.entries[0]:
                 z = re.match(
                     "cn=([^,]*),", str(conn.entries[0]['manager']))
@@ -117,18 +130,27 @@ def get_pkg_info(pkg_name):
                 login = m.login.text
                 email = m.email.text
                 name = m.realname.text
-                manager = get_manager(name, email)
-            roles[role] = "login: %s  - email: %s  - name: %s -  manager: %s" % (
-                login, email, name, manager)
+                if person_detail:
+                    st_manager = " -  1st manager: " +\
+                                 "%s" % get_manager(name, email)
+                    nd_manager = " -  2nd manager: " +\
+                                 "%s" % get_manager(st_manager, "")
+                else:
+                    st_manager = ""
+                    nd_manager = ""
+            roles[role] = "login: %s  - email: %s  - name: %s%s%s" % (
+                login, email, name, st_manager, nd_manager)
     return str(roles)
 
 
 def extract_pkg_info(project):
     packages_collection = osc.search.search(
         "package/id", xpath="@project=\'%s\'" % project)
-    for e in packages_collection.package:
-        package_name = e.attrib['name']
-        print(package_name, get_pkg_info(package_name))
+
+    if packages_collection.find('package') is not None:
+        for e in packages_collection.package:
+            package_name = e.attrib['name']
+            print(package_name, get_pkg_info(package_name))
 
 
 extract_pkg_info(project)
