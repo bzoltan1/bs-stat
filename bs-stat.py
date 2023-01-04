@@ -132,7 +132,7 @@ def get_pkg_info(pkg_name):
                         login = m.login.text
                         email = m.email.text
                         name = m.realname.text
-                        if person_detail:
+                        if person_detail and name and email:
                             manager = get_manager(name, email)
                             st_manager = " -  1st: " +\
                                          "%s" % manager
