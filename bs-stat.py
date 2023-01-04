@@ -25,8 +25,6 @@ from functools import cache
 from os import environ as env
 from shelved_cache import PersistentCache
 import cachetools
-
-
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -57,7 +55,6 @@ else:
     )
 
 project_cache_file = project.replace(':', '_')
-
 package_cache = PersistentCache(
     cachetools.LRUCache, '%s.pkg.cache' % project_cache_file, maxsize=20000)
 users_cache = PersistentCache(
@@ -94,14 +91,14 @@ def get_manager(name, email):
         filter_string = "(name=%s)" % remove_umlaut(name)
     with ldap3.Connection(server, auto_bind=True, check_names=False) as conn:
         try:
-            r = conn.search(
-                search_base, filter_string, attributes=attrs)
+            r = conn.search(search_base,
+                            filter_string,
+                            attributes=attrs)
             if not r:
                 filter_string = "(name=%s)" % remove_umlaut(name)
                 r = conn.search(search_base, filter_string, attributes=attrs)
             if r and 'manager' in conn.entries[0]:
-                z = re.match(
-                    "cn=([^,]*),", str(conn.entries[0]['manager']))
+                z = re.match("cn=([^,]*),", str(conn.entries[0]['manager']))
                 return z.group(1)
             else:
                 return ""
@@ -111,35 +108,49 @@ def get_manager(name, email):
 
 @cachetools.cached(package_cache)
 def get_pkg_info(pkg_name):
-    owner = osc.search.search(
-        "owner", xpath=None, package="%s" % pkg_name)
-    roles = {}
-    for e in owner:
-        owner = e.find('owner')
-        if owner is None:
+    osc_search_result = osc.search.search("owner",
+                                          xpath=None,
+                                          package="%s" % pkg_name)
+    roles = []
+    for e in osc_search_result:
+        owners = e.findall('owner')
+        if owners is None:
             break
-        group = e.owner.find('group')
-        if group is not None:
-            roles[e.owner.group.attrib['role']
-                  ] = e.owner.group.attrib['name']
-        person = e.owner.find('person')
-        if person is not None:
-            maintainer = get_user(e.owner.person.attrib['name'])
-            role = e.owner.person.attrib['role']
-            for m in maintainer:
-                login = m.login.text
-                email = m.email.text
-                name = m.realname.text
-                if person_detail:
-                    st_manager = " -  1st manager: " +\
-                                 "%s" % get_manager(name, email)
-                    nd_manager = " -  2nd manager: " +\
-                                 "%s" % get_manager(st_manager, "")
-                else:
-                    st_manager = ""
-                    nd_manager = ""
-            roles[role] = "login: %s  - email: %s  - name: %s%s%s" % (
-                login, email, name, st_manager, nd_manager)
+        for owner in owners:
+            if owner.attrib.get('package') is None:
+                group = owner.find('group')
+                if group is not None:
+                    roles.append("%s - " % owner.group.attrib['role'] +
+                                 "group: %s" % owner.group.attrib['name'])
+                continue
+            persons = owner.findall('person')
+            if persons is not None:
+                for person in persons:
+                    user = get_user(person.attrib['name'])
+                    role = person.attrib['role']
+                    for m in user:
+                        login = m.login.text
+                        email = m.email.text
+                        name = m.realname.text
+                        if person_detail:
+                            manager = get_manager(name, email)
+                            st_manager = " -  1st: " +\
+                                         "%s" % manager
+
+                            nd_manager = " -  2nd: " +\
+                                         "%s" % get_manager(manager, "")
+                        else:
+                            st_manager = ""
+                            nd_manager = ""
+                    roles.append("%s - " % role +
+                                 "login: %s  - " % login +
+                                 "email: %s  - " % email +
+                                 "name: %s" % name +
+                                 "%s%s" % (st_manager, nd_manager))
+            group = owner.find('group')
+            if group is not None:
+                roles.append("%s - " % owner.group.attrib['role'] +
+                             "group: %s" % owner.group.attrib['name'])
     return str(roles)
 
 
