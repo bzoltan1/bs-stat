@@ -38,9 +38,9 @@ The following environment variabls are used by the tool
   + The project to scan and get information. For example 'openSUSE:Factory'
 
 After the environment variables are set just execute the script:
-'''
+```
 ./bs-stat.py
-'''
+```
 
 The execution time may take extremly long time depending on the network and on the settings. When the project has 10k+ packages and ldap lookup is enabled it may take 10-12 hours.
 
