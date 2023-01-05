@@ -36,3 +36,12 @@ The following environment variabls are used by the tool
   + The URL for the OBS api server in 'https://your.api.server.hostname' format
 * PROJECT
   + The project to scan and get information. For example 'openSUSE:Factory'
+
+After the environment variables are set just execute the script:
+'''
+./bs-stat.py
+'''
+
+The execution time may take extremly long time depending on the network and on the settings. When the project has 10k+ packages and ldap lookup is enabled it may take 10-12 hours.
+For that reason the script is using cachetools. So if the connection to the build service breaks or the script is terminated for whatever reason it can continue when executed the next time.
+Cleaning up the cache files is not automatic
