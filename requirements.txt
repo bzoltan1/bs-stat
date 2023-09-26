@@ -1,6 +1,6 @@
-python-dotenv
-osc-tiny
-ldap3
-cached_property
-cachetools
-shelved_cache
+python-dotenv == 1.0.0
+osc-tiny == 0.7.12
+ldap3 == 2.9.1
+cached_property == 1.5.2
+cachetools == 5.3.1
+shelved_cache == 0.3.1
