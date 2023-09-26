@@ -42,10 +42,40 @@ After the environment variables are set just execute the script:
 ./bs-stat.py
 ```
 
-The execution time may take extremly long time depending on the network and on the settings. When the project has 10k+ packages and ldap lookup is enabled it may take 10-12 hours.
+The execution time may take extremely long time depending on the network and on the settings. When the project has 10k+ packages and ldap lookup is enabled it may take 10-12 hours.
 
 
 For that reason the script is using cachetools. So if the connection to the build service breaks or the script is terminated for whatever reason it can continue when executed the next time.
 
 
 Cleaning up the cache files is not automatic
+
+## How to use the container version
+
+### Requirements:
+
+ - `podman` or any equivalent container runtime
+ - network access to [openSUSE container registry](https://registry.opensuse.org/)
+ - a proper filled-in `.env` file as above
+
+### Usage:
+
+- if you never did yet, the first time you need to create the container image:
+
+`$ podman build -t bs-stat -f bs-stat.Containerfile`
+
+- once created, you can use it on any system without installing extra dependencies:
+
+`$ podman run -v .env:/app/.env bs-stat`
+
+- you can of course push the image to an online registry or even export the created image and re-import in another system:
+
+`$ podman save bs-stat --output bs-stat.img.tar`
+
+move the `.img.tar` file to another system and re-import:
+
+`$ podman load --input bs-stat.img.tar`
+
+- if you ever need to enter the container and do some debug/troubleshooting, you can open a shell with
+
+`$ podman run -it bs-stat bash`
